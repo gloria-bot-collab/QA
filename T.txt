@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>跨裝置實時課堂問答大賽系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRCode Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        .font-fredoka { font-family: 'Fredoka', cursive; }
+        
+        /* 橫屏提醒 Overlay */
+        @media screen and (orientation: portrait) and (max-width: 1024px) {
+            #portraitNotice {
+                display: flex !important;
+            }
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #93c5fd;
+            border-radius: 10px;
+        }
+
+        .sticker-badge {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        /* 超可愛動態漂浮動畫 */
+        @keyframes kawaiiFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(3deg); }
+        }
+        .animate-kawaii-float { animation: kawaiiFloat 4s ease-in-out infinite; }
+        .animate-kawaii-bounce { animation: kawaiiFloat 3s ease-in-out infinite reverse; }
+
+        /* 卡通厚重陰影 (Kawaii Pop Shadow) */
+        .pop-card {
+            box-shadow: 0 8px 0px rgba(14, 165, 233, 0.15), 0 15px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+        .pop-btn {
+            box-shadow: 0 5px 0px rgba(0, 0, 0, 0.12);
+        }
+        .pop-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0px rgba(0, 0, 0, 0.12);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-sky-200 via-pink-100 to-amber-100 text-slate-800 h-screen w-screen overflow-hidden flex flex-col relative font-sans">
+
+    <!-- 可愛飄浮裝飾 (Kawaii Background Decorations) -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div class="absolute top-8 left-10 text-4xl opacity-40 animate-kawaii-float">☁️</div>
+        <div class="absolute top-20 right-16 text-5xl opacity-40 animate-kawaii-bounce">🌈</div>
+        <div class="absolute bottom-12 left-20 text-4xl opacity-30 animate-kawaii-bounce">⭐</div>
+        <div class="absolute bottom-16 right-28 text-5xl opacity-40 animate-kawaii-float">🎨</div>
+        <div class="absolute top-1/2 left-6 text-3xl opacity-30 animate-kawaii-float">🎈</div>
+    </div>
+
+    <!-- 豎屏旋轉提醒 (Portrait Orientation Notice) -->
+    <div id="portraitNotice" class="fixed inset-0 bg-sky-900/95 text-white z-50 hidden flex-col items-center justify-center p-6 text-center backdrop-blur-md">
+        <div class="animate-bounce mb-6 text-amber-300 text-7xl">
+            📱✨
+        </div>
+        <h2 class="text-3xl font-black mb-2 text-amber-300">請把平板轉橫過來喔！ 🔄</h2>
+        <p class="text-sky-100 text-base max-w-sm font-bold">轉至橫屏模式，和小夥伴一起玩答題大賽吧！</p>
+    </div>
+
+    <!-- 頂部導航列 (Top Bar) -->
+    <header class="bg-white/95 backdrop-blur-md border-b-4 border-pink-300 shadow-md py-2 px-6 flex justify-between items-center z-20 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-amber-400 to-pink-400 text-white px-3.5 py-1.5 rounded-2xl shadow-md transform -rotate-3 animate-kawaii-float">
+                <i class="fa-solid fa-trophy text-2xl drop-shadow"></i>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black text-slate-800 tracking-wide font-fredoka flex items-center gap-2">
+                    <span class="bg-gradient-to-r from-sky-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">課堂問答大賽</span>
+                    <span class="bg-amber-300 text-amber-900 text-xs px-2.5 py-0.5 rounded-full font-black border-2 border-amber-400 shadow-sm">✨ 可愛版</span>
+                </h1>
+                <p class="text-xs text-sky-600 font-bold hidden sm:block">🎈 平板 ➔ 老師大螢幕 實時連線互動</p>
+            </div>
+        </div>
+
+        <div id="navRightControls" class="flex items-center gap-3">
+            <!-- 房間號碼標籤 -->
+            <div id="roomBadge" class="hidden flex items-center bg-pink-50 border-2 border-pink-300 rounded-2xl px-3 py-1 shadow-sm">
+                <span class="text-xs font-black text-pink-500 mr-1.5">🔑 房間號:</span>
+                <span id="roomNumDisplay" class="font-black text-purple-600 text-xl tracking-wider font-fredoka">----</span>
+                <button id="qrBtn" onclick="toggleQRModal()" class="ml-2 text-pink-500 hover:text-pink-700 text-sm p-1.5 rounded-xl hover:bg-pink-100 transition pop-btn" title="顯示 QR Code">
+                    <i class="fa-solid fa-qrcode"></i>
+                </button>
+            </div>
+
+            <!-- 返回/身份切換按鈕 -->
+            <button id="backToRoleBtn" onclick="confirmResetRole()" class="hidden bg-sky-100 hover:bg-sky-200 text-sky-700 font-black px-4 py-1.5 rounded-2xl border-2 border-sky-300 text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm pop-btn">
+                <i class="fa-solid fa-house"></i>
+                <span>切換身份</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主體內容區 (Main Content Area) -->
+    <main class="flex-1 relative overflow-hidden flex flex-col z-10">
+
+        <!-- 1. 選擇身份視窗 (Role Selector Screen) -->
+        <div id="roleSelector" class="flex-1 flex flex-col items-center justify-center p-6 z-10">
+            <div class="text-center mb-8">
+                <span class="bg-white/90 text-pink-600 font-black text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md border-2 border-pink-200 inline-flex items-center gap-1.5 animate-kawaii-bounce">
+                    ✨ Fun Quiz Time! ✨
+                </span>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-800 mt-3 drop-shadow-sm">歡迎參加課堂問答大賽 🐥</h2>
+                <p class="text-slate-600 mt-2 font-black text-base md:text-lg">點擊下方可愛按鈕選擇你的身分吧！</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+                <!-- 老師端入口卡片 -->
+                <button onclick="selectRole('teacher')" class="group relative bg-white/95 border-4 border-sky-300 hover:border-sky-400 rounded-3xl p-6 text-left pop-card transition transform hover:-translate-y-1 flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-4 -bottom-4 bg-sky-100 w-32 h-32 rounded-full group-hover:scale-125 transition duration-500"></div>
+                    <div>
+                        <div class="w-16 h-16 bg-gradient-to-tr from-sky-400 to-cyan-300 text-white rounded-2xl flex items-center justify-center text-3xl shadow-md mb-4 group-hover:rotate-6 transition border-2 border-white">
+                            👩‍🏫
+                        </div>
+                        <h3 class="text-2xl font-black text-sky-900">教師端 (大螢幕)</h3>
+                        <p class="text-slate-500 font-bold text-sm mt-2 leading-relaxed">開啟 8 個小組實時看板、評分星星與可愛獎勵貼紙。</p>
+                    </div>
+                    <div class="mt-6 flex items-center text-sky-600 font-black text-sm group-hover:translate-x-1 transition">
+                        <span>進入大螢幕展示</span>
+                        <i class="fa-solid fa-circle-arrow-right ml-2 text-lg"></i>
+                    </div>
+                </button>
+
+                <!-- 同學端入口卡片 -->
+                <button onclick="selectRole('student')" class="group relative bg-white/95 border-4 border-pink-300 hover:border-pink-400 rounded-3xl p-6 text-left pop-card transition transform hover:-translate-y-1 flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-4 -bottom-4 bg-pink-100 w-32 h-32 rounded-full group-hover:scale-125 transition duration-500"></div>
+                    <div>
+                        <div class="w-16 h-16 bg-gradient-to-tr from-pink-400 to-rose-300 text-white rounded-2xl flex items-center justify-center text-3xl shadow-md mb-4 group-hover:rotate-6 transition border-2 border-white">
+                            🎓
+                        </div>
+                        <h3 class="text-2xl font-black text-pink-900">同學端 (平板)</h3>
+                        <p class="text-slate-500 font-bold text-sm mt-2 leading-relaxed">輸入組員名字、選擇組別，在大框框裡寫下答案發送！</p>
+                    </div>
+                    <div class="mt-6 flex items-center text-pink-600 font-black text-sm group-hover:translate-x-1 transition">
+                        <span>開始快樂答題</span>
+                        <i class="fa-solid fa-circle-arrow-right ml-2 text-lg"></i>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. 教師端介面 (Teacher Interface - 8 Cards Grid) -->
+        <div id="teacherView" class="hidden flex-1 flex-col p-3 md:p-5 overflow-hidden">
+            <!-- 工具列 -->
+            <div class="flex justify-between items-center mb-3 bg-white/90 backdrop-blur-md border-2 border-sky-200 p-3 rounded-2xl shadow-sm shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-800 font-black text-base md:text-lg flex items-center gap-2">
+                        <span>🎨 全班 8 組即時展台</span>
+                    </span>
+                    <span id="syncStatus" class="bg-emerald-100 text-emerald-800 text-xs px-3 py-1 rounded-full font-black flex items-center gap-1.5 ml-2 border border-emerald-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        雲端實時連線中 ☁️
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="confirmClearAll()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xs md:text-sm px-3.5 py-2 rounded-xl border border-rose-300 transition flex items-center gap-1.5 shadow-sm pop-btn">
+                        <i class="fa-solid fa-broom"></i>
+                        <span>清空答案</span>
+                    </button>
+                    <button onclick="exportResults()" class="bg-gradient-to-r from-sky-400 to-indigo-400 hover:from-sky-500 hover:to-indigo-500 text-white font-black text-xs md:text-sm px-4 py-2 rounded-xl shadow-md transition flex items-center gap-1.5 pop-btn border border-white">
+                        <i class="fa-solid fa-cloud-arrow-down"></i>
+                        <span>下載大賽報告 (.txt)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 8 個組別 4x2 卡片網格 -->
+            <div class="flex-1 grid grid-cols-4 grid-rows-2 gap-3 md:gap-4 overflow-hidden min-h-0">
+                <div id="cardsGridContainer" class="col-span-4 row-span-2 grid grid-cols-4 grid-rows-2 gap-3 md:gap-4 h-full"></div>
+            </div>
+        </div>
+
+        <!-- 3. 同學端介面 (Student Interface) -->
+        <div id="studentView" class="hidden flex-1 flex-col items-center justify-center p-4 overflow-y-auto">
+            <!-- 首次進場設定組別 Modal -->
+            <div id="studentSetupModal" class="w-full max-w-lg bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-xl border-4 border-pink-300 my-auto pop-card">
+                <div class="text-center mb-5">
+                    <div class="w-16 h-16 bg-gradient-to-tr from-pink-400 to-amber-300 text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-2 shadow-md border-2 border-white transform rotate-3">
+                        🐥
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-800">登入問答小組 🌟</h3>
+                    <p class="text-xs text-pink-600 font-bold mt-1">請看大螢幕右上角的 4 位數房間號碼喔！</p>
+                </div>
+
+                <form onsubmit="event.preventDefault(); startStudentSession();" class="space-y-4">
+                    <div>
+                        <label class="block text-slate-700 font-black text-sm mb-1">1. 房間號碼 (Room Code)</label>
+                        <input type="number" id="inputRoomCode" required placeholder="例如：8821" maxlength="4" class="w-full px-4 py-2.5 text-center text-2xl font-black tracking-widest text-purple-600 bg-purple-50 border-2 border-purple-200 rounded-2xl focus:ring-4 focus:ring-purple-200 outline-none uppercase font-fredoka">
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-700 font-black text-sm mb-1">2. 選擇組別</label>
+                        <select id="selectGroup" required class="w-full px-4 py-3 font-black text-slate-800 bg-amber-50 border-2 border-amber-200 rounded-2xl focus:ring-4 focus:ring-amber-200 outline-none">
+                            <option value="" disabled selected>-- 請選擇你是第幾組 --</option>
+                            <option value="1">🐥 第 1 組</option>
+                            <option value="2">🐶 第 2 組</option>
+                            <option value="3">🐱 第 3 組</option>
+                            <option value="4">🐰 第 4 組</option>
+                            <option value="5">🦊 第 5 組</option>
+                            <option value="6">🐼 第 6 組</option>
+                            <option value="7">🐨 第 7 組</option>
+                            <option value="8">🦁 第 8 組</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-700 font-black text-sm mb-1">3. 參賽隊員姓名</label>
+                        <input type="text" id="inputStudentName" required placeholder="例如：小明, 小紅" class="w-full px-4 py-2.5 font-bold text-slate-800 bg-sky-50 border-2 border-sky-200 rounded-2xl focus:ring-4 focus:ring-sky-200 outline-none">
+                    </div>
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-pink-400 to-rose-400 hover:from-pink-500 hover:to-rose-500 text-white font-black text-lg py-3 rounded-2xl shadow-md transition mt-2 pop-btn border-2 border-white">
+                        準備好作答了！ 🚀
+                    </button>
+                </form>
+            </div>
+
+            <!-- 同學答題框架 (Student Answer Frame) -->
+            <div id="studentFrame" class="hidden w-full max-w-4xl h-full flex flex-col justify-between p-2">
+                <!-- 答題框架頂部資訊 -->
+                <div class="bg-white/90 rounded-2xl p-3 shadow-sm border-2 border-pink-200 flex justify-between items-center mb-3 shrink-0">
+                    <div class="flex items-center gap-3">
+                        <span id="studentGroupBadge" class="bg-gradient-to-r from-pink-400 to-amber-400 text-white font-black px-4 py-1.5 rounded-xl text-lg shadow-sm border border-white">
+                            第 - 組
+                        </span>
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold">隊員名單</p>
+                            <p id="studentNameDisplay" class="font-black text-slate-700 text-sm md:text-base">--</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div id="studentSyncIndicator" class="text-xs font-black text-emerald-600 flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                            <i class="fa-solid fa-cloud-check"></i>
+                            <span>已傳送到大螢幕</span>
+                        </div>
+                        <button onclick="reeditStudentSetup()" class="text-slate-400 hover:text-slate-600 text-xs font-bold underline">
+                            換組別
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 答案輸入區域 -->
+                <div class="flex-1 bg-white rounded-3xl p-5 shadow-lg border-4 border-sky-300 flex flex-col min-h-0 relative pop-card">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sky-800 font-black text-base md:text-lg flex items-center gap-2">
+                            <span>✏️ 在這裏寫下你們組的答案吧：</span>
+                        </label>
+                        <span id="charCounter" class="text-xs font-black bg-sky-100 text-sky-700 px-2.5 py-1 rounded-full">0 字</span>
+                    </div>
+
+                    <textarea id="studentAnswerInput" oninput="handleStudentInput()" placeholder="在這裡輸入答案..." class="flex-1 w-full p-4 font-bold text-slate-800 text-lg md:text-xl leading-relaxed bg-amber-50/50 border-2 border-amber-200 rounded-2xl focus:bg-white focus:border-pink-400 focus:ring-4 focus:ring-pink-100 outline-none resize-none custom-scrollbar"></textarea>
+
+                    <div class="mt-3 flex justify-between items-center shrink-0">
+                        <p class="text-xs font-bold text-amber-600 flex items-center gap-1">
+                            💡 打字時答案會自動同步傳送到老師的大螢幕上喔！
+                        </p>
+                        <button onclick="manualSendAnswer()" class="bg-gradient-to-r from-sky-400 to-cyan-400 hover:from-sky-500 hover:to-cyan-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md transition flex items-center gap-2 text-sm pop-btn border border-white">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>即時發送</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- QR Code Modal -->
+    <div id="qrModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl relative border-4 border-pink-300 pop-card">
+            <button onclick="toggleQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-black text-slate-800 mb-1">掃碼即刻連線 📱✨</h3>
+            <p class="text-xs font-bold text-slate-500 mb-4">用平板相機掃一掃或輸入房間號碼</p>
+            <div id="qrcode" class="flex justify-center p-3 bg-white border-2 border-pink-100 rounded-2xl shadow-inner mx-auto mb-3"></div>
+            <div class="bg-pink-50 rounded-2xl py-2 px-4 border-2 border-pink-200">
+                <span class="text-xs font-bold text-pink-500">房間號碼：</span>
+                <span id="qrRoomCode" class="font-black text-purple-600 text-2xl font-fredoka tracking-widest">----</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 可愛貼紙選單 Modal (Teacher Side) -->
+    <div id="stickerModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl relative border-4 border-amber-300 pop-card">
+            <button onclick="closeStickerModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-lg font-black text-slate-800 mb-3 flex items-center gap-2">
+                <span>🎀 為 <span id="stickerModalGroupName" class="text-pink-600">第 - 組</span> 送出獎賞貼紙</span>
+            </h3>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <button onclick="addStickerToGroup('👑 答得超棒！')" class="p-3 bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 rounded-2xl font-black text-slate-800 flex items-center gap-2 transition pop-btn">
+                    <span>👑 答得超棒！</span>
+                </button>
+                <button onclick="addStickerToGroup('✨ 亮眼神答')" class="p-3 bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-2xl font-black text-slate-800 flex items-center gap-2 transition pop-btn">
+                    <span>✨ 亮眼神答</span>
+                </button>
+                <button onclick="addStickerToGroup('🔥 思考神速')" class="p-3 bg-rose-50 hover:bg-rose-100 border-2 border-rose-200 rounded-2xl font-black text-slate-800 flex items-center gap-2 transition pop-btn">
+                    <span>🔥 思考神速</span>
+                </button>
+                <button onclick="addStickerToGroup('💡 創意大爆發')" class="p-3 bg-sky-50 hover:bg-sky-100 border-2 border-sky-200 rounded-2xl font-black text-slate-800 flex items-center gap-2 transition pop-btn">
+                    <span>💡 創意大爆發</span>
+                </button>
+                <button onclick="addStickerToGroup('🧸 超棒合作')" class="p-3 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-200 rounded-2xl font-black text-slate-800 flex items-center gap-2 transition pop-btn">
+                    <span>🧸 超棒合作</span>
+                </button>
+                <button onclick="addStickerToGroup('🐾 第一名')" class="p-3 bg-pink-50 hover:bg-pink-100 border-2 border-pink-200 rounded-2xl font-black text-slate-800 flex items-center gap-2 transition pop-btn">
+                    <span>🐾 第一名</span>
+                </button>
+            </div>
+            
+            <div class="flex justify-between items-center pt-2 border-t border-slate-100">
+                <button onclick="clearGroupStickers()" class="text-xs font-bold text-rose-500 hover:underline">
+                    回收貼紙
+                </button>
+                <button onclick="closeStickerModal()" class="bg-slate-200 hover:bg-slate-300 font-black px-4 py-2 rounded-xl text-xs text-slate-700 pop-btn">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 系統核心 JAVASCRIPT Logic -->
+    <script>
+        // -------------------------------------------------------------
+        // CLOUD COMMUNICATION ENGINE (Double Cloud Sync - High Compatibility)
+        // -------------------------------------------------------------
+        
+        // 採用多重公共 REST Gateway 避免單點網絡阻擋
+        const ENDPOINTS = [
+            "https://api.rest7.com/v1/json/push",
+            "https://hk-classroom-quiz-default-rtdb.asia-southeast1.firebasedatabase.app"
+        ];
+
+        // 升級版：連線發送函式（支援連續握手發送）
+        async function pushDataToCloud() {
+            if (!state.roomCode) return;
+            const dataPayload = JSON.stringify(state.groups);
+
+            // 1. 本地廣播 (若剛好在同一台機器/分頁)
+            try {
+                if (window.BroadcastChannel) {
+                    const bc = new BroadcastChannel('quiz_channel_' + state.roomCode);
+                    bc.postMessage(state.groups);
+                }
+            } catch(e){}
+
+            // 2. 雲端雙向同步 (HTTP REST Long-Poll Gateway)
+            const url = `https://hk-classroom-quiz-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${state.roomCode}.json`;
+
+            try {
+                await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: dataPayload,
+                    mode: 'cors'
+                });
+                if (state.role === 'student') {
+                    showSyncStatus("已發送至老師大螢幕！");
+                }
+            } catch (err) {
+                console.warn("Primary endpoint retry...", err);
+                // 備用快取備份
+                localStorage.setItem('room_' + state.roomCode, dataPayload);
+            }
+        }
+
+        // 輪詢與即時監聽 (老師端與同學端通用)
+        function startPollingServer() {
+            // 本地頻道監聽
+            try {
+                if (window.BroadcastChannel) {
+                    const bc = new BroadcastChannel('quiz_channel_' + state.roomCode);
+                    bc.onmessage = (event) => {
+                        if (event.data) mergeCloudData(event.data);
+                    };
+                }
+            } catch(e){}
+
+            // 每 800ms 超高速實時輪詢
+            setInterval(async () => {
+                if (!state.roomCode) return;
+                const url = `https://hk-classroom-quiz-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${state.roomCode}.json`;
+
+                try {
+                    const res = await fetch(url, { cache: 'no-cache' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data) {
+                            mergeCloudData(data);
+                        }
+                    }
+                } catch (err) {
+                    // 若網絡中斷，嘗試讀取 LocalStorage 備份
+                    const localData = localStorage.getItem('room_' + state.roomCode);
+                    if (localData) mergeCloudData(JSON.parse(localData));
+                }
+            }, 800);
+        }
+
+        // -------------------------------------------------------------
+        // STUDENT SIDE LOGIC (加強握手)
+        // -------------------------------------------------------------
+        function startStudentSession() {
+            const roomCode = document.getElementById('inputRoomCode').value.trim();
+            const groupNum = document.getElementById('selectGroup').value;
+            const name = document.getElementById('inputStudentName').value.trim();
+
+            if (!roomCode || roomCode.length !== 4) {
+                alert("請輸入正確的 4 位數房間號碼！");
+                return;
+            }
+            if (!groupNum || !name) {
+                alert("請完整選擇組別並輸入隊員姓名！");
+                return;
+            }
+
+            state.roomCode = roomCode;
+            state.studentGroup = groupNum;
+            state.studentName = name;
+
+            document.getElementById('roomNumDisplay').innerText = roomCode;
+            document.getElementById('studentSetupModal').classList.add('hidden');
+            document.getElementById('studentFrame').classList.remove('hidden');
+            document.getElementById('studentFrame').classList.add('flex');
+
+            document.getElementById('studentGroupBadge').innerText = `第 ${groupNum} 組`;
+            document.getElementById('studentNameDisplay').innerText = name;
+
+            // 1. 本地記錄
+            state.groups[groupNum].name = name;
+
+            // 2. ⚡ 強制連續發送 3 次連線信號，確保老師端一定能收到「已登場」
+            pushDataToCloud();
+            setTimeout(pushDataToCloud, 500);
+            setTimeout(pushDataToCloud, 1200);
+
+            // 3. 啟動同學端實時同步
+            startPollingServer();
+        }
+
+        function reeditStudentSetup() {
+            if (confirm("要修改組別或姓名嗎？")) {
+                document.getElementById('studentFrame').classList.add('hidden');
+                document.getElementById('studentSetupModal').classList.remove('hidden');
+            }
+        }
+
+        function handleStudentInput() {
+            const val = document.getElementById('studentAnswerInput').value;
+            document.getElementById('charCounter').innerText = `${val.length} 字`;
+
+            state.groups[state.studentGroup].answer = val;
+            state.groups[state.studentGroup].name = state.studentName;
+
+            // Debounce 發送 (避免每按一個字都極速 Call API)
+            clearTimeout(state.syncDebounceTimer);
+            state.syncDebounceTimer = setTimeout(() => {
+                pushDataToCloud();
+            }, 300);
+        }
+
+        function manualSendAnswer() {
+            handleStudentInput();
+            showSyncStatus("已發送至大螢幕！");
+        }
+
+        function showSyncStatus(msg) {
+            const el = document.getElementById('studentSyncIndicator');
+            el.innerHTML = `<i class="fa-solid fa-check text-emerald-500"></i><span class="text-emerald-600 font-bold">${msg}</span>`;
+            setTimeout(() => {
+                el.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i><span>已同步至大螢幕</span>`;
+            }, 2000);
+        }
+
+        // -------------------------------------------------------------
+        // CLOUD COMMUNICATION ENGINE (Firebase REST API / HTTPS)
+        // -------------------------------------------------------------
+        // 發送資料至雲端
+        async function pushDataToCloud() {
+            if (!state.roomCode) return;
+            const url = `${DB_BASE_URL}/rooms/${state.roomCode}.json`;
+
+            try {
+                await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(state.groups)
+                });
+                if (state.role === 'student') {
+                    showSyncStatus("已同步");
+                }
+            } catch (err) {
+                console.error("Cloud push failed:", err);
+            }
+        }
+
+        // 輪詢從雲端拉取最新資料 (1 秒一次)
+        function startPollingServer() {
+            setInterval(async () => {
+                if (!state.roomCode) return;
+                const url = `${DB_BASE_URL}/rooms/${state.roomCode}.json`;
+
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data) {
+                            mergeCloudData(data);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Cloud poll failed:", err);
+                }
+            }, 1000);
+        }
+
+        function mergeCloudData(cloudGroups) {
+            for (let i = 1; i <= 8; i++) {
+                if (!cloudGroups[i]) continue;
+
+                // 如果是同學端，保留自己的答案輸入內容，只同步老師評分與貼紙
+                if (state.role === 'student') {
+                    if (i == state.studentGroup) {
+                        state.groups[i].score = cloudGroups[i].score || 0;
+                        state.groups[i].stickers = cloudGroups[i].stickers || [];
+                        continue; 
+                    }
+                }
+
+                // 老師端或同學端其他組別：完全更新數據
+                state.groups[i] = {
+                    name: cloudGroups[i].name || '',
+                    answer: cloudGroups[i].answer || '',
+                    score: cloudGroups[i].score || 0,
+                    stickers: cloudGroups[i].stickers || []
+                };
+
+                updateGroupUI(i);
+            }
+        }
+
+        function updateGroupUI(gNum) {
+            if (state.role !== 'teacher') return;
+
+            const gData = state.groups[gNum] || { name: '', answer: '', score: 0, stickers: [] };
+
+            // 隊員姓名
+            const nameEl = document.getElementById(`groupName${gNum}`);
+            if (nameEl) {
+                if (gData.name) {
+                    nameEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1 animate-ping"></span>(${gData.name})`;
+                    nameEl.className = "text-xs md:text-sm font-bold text-sky-700 truncate flex items-center";
+                } else {
+                    nameEl.innerText = '(未登入)';
+                    nameEl.className = "text-xs md:text-sm font-bold text-slate-400 truncate";
+                }
+            }
+
+            // 答案內容
+            const ansEl = document.getElementById(`groupAnswer${gNum}`);
+            if (ansEl) {
+                if (gData.answer && gData.answer.trim()) {
+                    ansEl.innerText = gData.answer;
+                    ansEl.className = "text-slate-800 font-bold text-sm md:text-base leading-relaxed whitespace-pre-wrap";
+                } else {
+                    ansEl.innerHTML = `<span class="text-slate-300 font-normal italic">等待組別輸入答案...</span>`;
+                }
+            }
+
+            // 星級評分
+            updateStarDisplay(gNum, gData.score || 0);
+
+            // 貼紙
+            renderStickers(gNum);
+        }
+
+        // -------------------------------------------------------------
+        // UTILITIES (EXPORT & QR CODE)
+        // -------------------------------------------------------------
+        function exportResults() {
+            let summary = "=== 課堂問答大賽 - 最終得分與答題紀錄 ===\n\n";
+            summary += `日期：${new Date().toLocaleString('zh-HK')}\n`;
+            summary += `房間號碼：${state.roomCode}\n`;
+            summary += "--------------------------------------------------\n\n";
+
+            for (let i = 1; i <= 8; i++) {
+                const g = state.groups[i] || { name: "未填寫", answer: "無", score: 0, stickers: [] };
+                summary += `【第 ${i} 組】\n`;
+                summary += `參賽隊員：${g.name || "未填寫"}\n`;
+                summary += `評分：${'★'.repeat(g.score || 0)}${'☆'.repeat(5 - (g.score || 0))} (${g.score || 0}/5 星)\n`;
+                summary += `獲頒貼紙：${(g.stickers && g.stickers.length > 0) ? g.stickers.join(', ') : '無'}\n`;
+                summary += `作答答案：\n${g.answer || "無內容"}\n`;
+                summary += "--------------------------------------------------\n";
+            }
+
+            const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `課堂問答大賽總結報告_${new Date().toISOString().slice(0,10)}.txt`;
+            link.click();
+        }
+
+        function generateQRCode() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            
+            // 當前 URL 自動加上房間號碼
+            const joinUrl = `${window.location.origin}${window.location.pathname}?room=${state.roomCode}`;
+
+            new QRCode(qrContainer, {
+                text: joinUrl,
+                width: 160,
+                height: 160,
+                colorDark: "#0284c7",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function toggleQRModal() {
+            const modal = document.getElementById('qrModal');
+            modal.classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>
